@@ -1,36 +1,52 @@
-import { useState } from 'react';
-import { Search } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Search, ChevronLeft, ChevronRight } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 import Navbar from '../components/Navbar';
 
+const PAGE_SIZE = 8;
+
 export default function HomePage() {
   const [query, setQuery] = useState('');
-  const [results, setResults] = useState([]);
-  const [loading, setLoading] = useState(false);
+
+  const [entries, setEntries] = useState([]);
+  const [page, setPage] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [searched, setSearched] = useState(false);
 
-  const handleSearch = async (e) => {
-    e.preventDefault();
-    if (!query.trim()) return;
-    setLoading(true);
-    setError('');
-    setSearched(true);
+  useEffect(() => {
+    let cancelled = false;
 
-    const { data, error } = await supabase
-      .from('cases')
-      .select('*')
-      .or(`case_number.ilike.%${query}%,title.ilike.%${query}%,parties.ilike.%${query}%`)
-      .limit(50);
+    (async () => {
+      setLoading(true);
+      setError('');
 
-    setLoading(false);
-    if (error) {
-      setError(error.message);
-      setResults([]);
-    } else {
-      setResults(data ?? []);
-    }
-  };
+      const from = (page - 1) * PAGE_SIZE;
+      const to = from + PAGE_SIZE - 1;
+
+      const { data, count, error } = await supabase
+        .from('case_databank')
+        .select('*', { count: 'exact' })
+        .order('created_at', { ascending: false })
+        .range(from, to);
+
+      if (cancelled) return;
+      setLoading(false);
+      if (error) {
+        setError(error.message);
+        setEntries([]);
+      } else {
+        setEntries(data ?? []);
+        setTotalCount(count ?? 0);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [page]);
+
+  const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
 
   return (
     <div>
@@ -39,7 +55,7 @@ export default function HomePage() {
         <h1 className="heading" style={styles.title}>Case Search</h1>
         <p style={styles.subtitle}>Search by case number, title, or party name.</p>
 
-        <form onSubmit={handleSearch} style={styles.searchRow}>
+        <form onSubmit={(e) => e.preventDefault()} style={styles.searchRow}>
           <div style={styles.searchInputWrap}>
             <Search size={16} color="var(--muted)" style={styles.searchIcon} />
             <input
@@ -50,35 +66,54 @@ export default function HomePage() {
               style={{ paddingLeft: 40 }}
             />
           </div>
-          <button type="submit" className="btn-primary" disabled={loading}>
-            {loading ? 'Searching…' : 'Search'}
+          <button type="submit" className="btn-primary">
+            Search
           </button>
         </form>
 
-        {error && (
-          <div style={styles.errorBox}>
-            {error.includes('does not exist')
-              ? 'The case database has not been set up yet — run the starter migration in supabase/migrations.'
-              : error}
-          </div>
+        <h2 className="heading" style={styles.sectionTitle}>Case Databank</h2>
+
+        {error && <div style={styles.errorBox}>{error}</div>}
+
+        {!error && !loading && entries.length === 0 && (
+          <div style={styles.empty}>No entries in the case databank yet.</div>
         )}
 
-        {!error && searched && !loading && results.length === 0 && (
-          <div style={styles.empty}>No cases matched "{query}".</div>
-        )}
-
-        <div style={styles.results}>
-          {results.map((c) => (
-            <div key={c.id} className="card" style={styles.resultCard}>
-              <div style={styles.resultHeader}>
-                <span style={styles.caseNumber}>{c.case_number}</span>
-                {c.status && <span style={styles.statusBadge}>{c.status}</span>}
+        <div style={styles.entries}>
+          {entries.map((entry) => (
+            <div key={entry.id} className="card" style={styles.entryCard}>
+              <div style={styles.issue}>{entry.issue}</div>
+              <div style={styles.caseLaw}>{entry.case_law}</div>
+              <div className="findings-fade" style={styles.findingsWrap}>
+                <div style={styles.findings}>{entry.findings}</div>
               </div>
-              <div style={styles.resultTitle}>{c.title}</div>
-              {c.parties && <div style={styles.resultParties}>{c.parties}</div>}
             </div>
           ))}
         </div>
+
+        {totalPages > 1 && (
+          <div style={styles.pagination}>
+            <button
+              type="button"
+              style={styles.pageBtn}
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={page <= 1 || loading}
+            >
+              <ChevronLeft size={16} />
+            </button>
+            <span style={styles.pageLabel}>
+              Page {page} of {totalPages}
+            </span>
+            <button
+              type="button"
+              style={styles.pageBtn}
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              disabled={page >= totalPages || loading}
+            >
+              <ChevronRight size={16} />
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -102,7 +137,7 @@ const styles = {
   searchRow: {
     display: 'flex',
     gap: 12,
-    marginBottom: 24,
+    marginBottom: 40,
   },
   searchInputWrap: {
     position: 'relative',
@@ -114,10 +149,14 @@ const styles = {
     top: '50%',
     transform: 'translateY(-50%)',
   },
+  sectionTitle: {
+    fontSize: 24,
+    marginBottom: 20,
+  },
   errorBox: {
-    background: 'rgba(224,62,26,0.1)',
-    border: '1px solid rgba(224,62,26,0.25)',
-    borderRadius: 8,
+    background: 'rgba(179,57,42,0.12)',
+    border: '1px solid rgba(179,57,42,0.3)',
+    borderRadius: 6,
     padding: '12px 16px',
     marginBottom: 20,
     color: 'var(--red)',
@@ -128,38 +167,56 @@ const styles = {
     fontSize: 14,
     padding: '20px 0',
   },
-  results: {
+  entries: {
     display: 'flex',
     flexDirection: 'column',
-    gap: 12,
+    gap: 16,
   },
-  resultCard: {
-    padding: 18,
+  entryCard: {
+    padding: 24,
   },
-  resultHeader: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+  issue: {
+    fontFamily: "'Playfair Display', serif",
+    fontWeight: 700,
+    fontSize: 26,
+    color: 'var(--accent)',
     marginBottom: 6,
   },
-  caseNumber: {
-    fontFamily: "'Space Mono', monospace",
-    fontSize: 13,
-    color: 'var(--accent)',
-  },
-  statusBadge: {
-    fontSize: 11,
-    color: 'var(--muted)',
-    border: '1px solid var(--border)',
-    borderRadius: 6,
-    padding: '2px 8px',
-  },
-  resultTitle: {
-    fontSize: 16,
+  caseLaw: {
+    fontSize: 15,
     fontWeight: 500,
-    marginBottom: 4,
+    color: 'var(--text)',
+    marginBottom: 12,
   },
-  resultParties: {
+  findingsWrap: {
+    position: 'relative',
+    maxHeight: '4.6em',
+    overflow: 'hidden',
+  },
+  findings: {
+    fontSize: 13,
+    color: 'var(--muted)',
+    lineHeight: 1.5,
+  },
+  pagination: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 16,
+    marginTop: 32,
+  },
+  pageBtn: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    background: 'transparent',
+    border: '1px solid var(--border)',
+    color: 'var(--text)',
+    borderRadius: 8,
+    width: 34,
+    height: 34,
+  },
+  pageLabel: {
     fontSize: 13,
     color: 'var(--muted)',
   },
