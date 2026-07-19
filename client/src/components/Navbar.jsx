@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { Lock, Landmark } from 'lucide-react';
+import { Lock, Landmark, ShieldUser } from 'lucide-react';
 import { lock } from './PasswordGate';
 
 export default function Navbar() {
@@ -14,9 +14,14 @@ export default function Navbar() {
         <Landmark size={18} color="var(--accent)" />
         <span className="heading" style={styles.brandText}>Kedah Court System</span>
       </Link>
-      <button style={styles.lockBtn} onClick={handleLock} title="Lock">
-        <Lock size={16} />
-      </button>
+      <div style={styles.actions}>
+        <Link to="/admin" style={styles.iconBtn} title="Admin">
+          <ShieldUser size={16} />
+        </Link>
+        <button style={styles.iconBtn} onClick={handleLock} title="Lock">
+          <Lock size={16} />
+        </button>
+      </div>
     </nav>
   );
 }
@@ -43,7 +48,12 @@ const styles = {
     fontSize: 20,
     color: 'var(--text)',
   },
-  lockBtn: {
+  actions: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 8,
+  },
+  iconBtn: {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
@@ -53,5 +63,6 @@ const styles = {
     borderRadius: 8,
     width: 34,
     height: 34,
+    textDecoration: 'none',
   },
 };
