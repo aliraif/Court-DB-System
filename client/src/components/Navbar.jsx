@@ -1,8 +1,11 @@
 import { Link } from 'react-router-dom';
-import { Lock, Landmark, ShieldUser } from 'lucide-react';
+import { Lock, Landmark, ShieldUser, Sun, Moon } from 'lucide-react';
 import { lock } from './PasswordGate';
+import { useTheme } from '../lib/useTheme';
 
 export default function Navbar() {
+  const { theme, toggleTheme } = useTheme();
+
   const handleLock = () => {
     lock();
     window.location.reload();
@@ -15,6 +18,14 @@ export default function Navbar() {
         <span className="heading" style={styles.brandText}>Kedah Court System</span>
       </Link>
       <div style={styles.actions}>
+        <button
+          type="button"
+          style={styles.iconBtn}
+          onClick={toggleTheme}
+          title={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
+        >
+          {theme === 'light' ? <Moon size={16} /> : <Sun size={16} />}
+        </button>
         <Link to="/admin" style={styles.iconBtn} title="Admin">
           <ShieldUser size={16} />
         </Link>

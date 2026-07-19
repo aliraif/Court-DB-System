@@ -7,7 +7,21 @@
 }
 
 :root {
-  --accent: #C9A24B;
+  --accent: #b8862c;
+  --accent-dim: #96701f;
+  --black: #16202e;
+  --bg: #f6f2e8;
+  --card: #ffffff;
+  --card2: #efe9da;
+  --border: #ddd4bd;
+  --muted: #6f6a5c;
+  --text: #16202e;
+  --red: #b3392a;
+  --input-bg: #ffffff;
+}
+
+[data-theme='dark'] {
+  --accent: #c9a24b;
   --accent-dim: #a8842f;
   --black: #0b0e14;
   --bg: #0e1420;
@@ -15,8 +29,9 @@
   --card2: #1a2333;
   --border: #2b364a;
   --muted: #8891a3;
-  --text: #ecefF4;
+  --text: #eceff4;
   --red: #b3392a;
+  --input-bg: #101828;
 }
 
 body {
@@ -33,7 +48,7 @@ h1, h2, h3, .heading {
 }
 
 input, select, textarea {
-  background: #101828;
+  background: var(--input-bg);
   border: 1px solid var(--border);
   color: var(--text);
   border-radius: 6px;
@@ -54,7 +69,7 @@ input::placeholder {
 }
 
 select option {
-  background: #1a1e20;
+  background: var(--input-bg);
   color: var(--text);
 }
 
