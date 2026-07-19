@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { Lock, Landmark, ShieldUser } from 'lucide-react';
+import { Lock, Landmark, ShieldUser, FileText } from 'lucide-react';
 import { lock } from './PasswordGate';
 
 export default function Navbar() {
@@ -15,6 +15,9 @@ export default function Navbar() {
         <span className="heading" style={styles.brandText}>Kedah Court System</span>
       </Link>
       <div style={styles.actions}>
+        <Link to="/cases" style={styles.iconBtn} title="Cases">
+          <FileText size={16} />
+        </Link>
         <Link to="/admin" style={styles.iconBtn} title="Admin">
           <ShieldUser size={16} />
         </Link>

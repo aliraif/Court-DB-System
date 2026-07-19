@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Search, ChevronLeft, ChevronRight } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 import Navbar from '../components/Navbar';
@@ -81,13 +82,15 @@ export default function HomePage() {
 
         <div style={styles.entries}>
           {entries.map((entry) => (
-            <div key={entry.id} className="card" style={styles.entryCard}>
-              <div style={styles.issue}>{entry.issue}</div>
-              <div style={styles.caseLaw}>{entry.case_law}</div>
-              <div className="findings-fade" style={styles.findingsWrap}>
-                <div style={styles.findings}>{entry.findings}</div>
+            <Link key={entry.id} to={`/cases/${entry.id}`} style={styles.entryLink}>
+              <div className="card" style={styles.entryCard}>
+                <div style={styles.issue}>{entry.issue}</div>
+                <div style={styles.caseLaw}>{entry.case_law}</div>
+                <div className="findings-fade" style={styles.findingsWrap}>
+                  <div style={styles.findings}>{entry.findings}</div>
+                </div>
               </div>
-            </div>
+            </Link>
           ))}
         </div>
 
@@ -172,8 +175,13 @@ const styles = {
     flexDirection: 'column',
     gap: 16,
   },
+  entryLink: {
+    textDecoration: 'none',
+    transition: 'transform 0.2s, box-shadow 0.2s',
+  },
   entryCard: {
     padding: 24,
+    cursor: 'pointer',
   },
   issue: {
     fontFamily: "'Playfair Display', serif",
