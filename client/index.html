@@ -3,9 +3,17 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#0e1420" />
+    <meta name="theme-color" content="#f6f2e8" />
     <meta name="robots" content="noindex, nofollow" />
     <title>Kedah Court System</title>
+    <script>
+      // Set the theme before first paint so there's no flash of the
+      // wrong theme while React loads. Defaults to light.
+      (function () {
+        var theme = localStorage.getItem('kcs_theme') || 'light';
+        document.documentElement.setAttribute('data-theme', theme);
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>
