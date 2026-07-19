@@ -1,6 +1,13 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
+import { Pencil, X } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
+import { useDatabankSearch } from '../lib/useDatabankSearch';
+import { highlight } from '../lib/highlight';
 import Navbar from '../components/Navbar';
+import DatabankSearchBar from '../components/DatabankSearchBar';
+import Pagination from '../components/Pagination';
+
+const PAGE_SIZE = 8;
 
 export default function AdminPage() {
   const [issue, setIssue] = useState('');
@@ -9,26 +16,29 @@ export default function AdminPage() {
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
-  const [entries, setEntries] = useState([]);
-  const [loadingEntries, setLoadingEntries] = useState(true);
 
-  const loadEntries = async () => {
-    setLoadingEntries(true);
-    const { data, error } = await supabase
-      .from('case_databank')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .limit(20);
+  const {
+    query,
+    setQuery,
+    filterType,
+    setFilterType,
+    debouncedQuery,
+    entries,
+    setEntries,
+    page,
+    setPage,
+    totalPages,
+    loading: loadingEntries,
+    error: listError,
+    refresh,
+  } = useDatabankSearch(PAGE_SIZE);
 
-    if (!error) setEntries(data ?? []);
-    setLoadingEntries(false);
-  };
+  const [editingId, setEditingId] = useState(null);
+  const [editForm, setEditForm] = useState({ issue: '', case_law: '', findings: '', notes: '' });
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [editError, setEditError] = useState('');
 
-  useEffect(() => {
-    (async () => {
-      await loadEntries();
-    })();
-  }, []);
+  const highlightTerm = debouncedQuery;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -54,7 +64,52 @@ export default function AdminPage() {
     setCaseLaw('');
     setFindings('');
     setNotes('');
-    loadEntries();
+    if (page === 1) {
+      refresh();
+    } else {
+      setPage(1);
+    }
+  };
+
+  const startEdit = (entry) => {
+    setEditingId(entry.id);
+    setEditForm({
+      issue: entry.issue,
+      case_law: entry.case_law,
+      findings: entry.findings,
+      notes: entry.notes === 'None' ? '' : entry.notes,
+    });
+    setEditError('');
+  };
+
+  const cancelEdit = () => {
+    setEditingId(null);
+    setEditError('');
+  };
+
+  const saveEdit = async () => {
+    if (!editForm.issue.trim() || !editForm.case_law.trim() || !editForm.findings.trim()) return;
+
+    setSavingEdit(true);
+    setEditError('');
+
+    const updated = {
+      issue: editForm.issue.trim(),
+      case_law: editForm.case_law.trim(),
+      findings: editForm.findings.trim(),
+      notes: editForm.notes.trim() || 'None',
+    };
+
+    const { error } = await supabase.from('case_databank').update(updated).eq('id', editingId);
+
+    setSavingEdit(false);
+    if (error) {
+      setEditError(error.message);
+      return;
+    }
+
+    setEntries((prev) => prev.map((e) => (e.id === editingId ? { ...e, ...updated } : e)));
+    setEditingId(null);
   };
 
   return (
@@ -112,23 +167,96 @@ export default function AdminPage() {
           </form>
         </div>
 
-        <h2 className="heading" style={styles.listTitle}>Recent Entries</h2>
+        <h2 className="heading" style={styles.listTitle}>All Entries</h2>
 
-        {loadingEntries && <div style={styles.empty}>Loading…</div>}
-        {!loadingEntries && entries.length === 0 && (
-          <div style={styles.empty}>No entries yet.</div>
+        <DatabankSearchBar
+          query={query}
+          onQueryChange={setQuery}
+          filterType={filterType}
+          onFilterChange={setFilterType}
+          placeholder="Search your entries…"
+        />
+
+        {listError && <div style={styles.errorBox}>{listError}</div>}
+
+        {!listError && !loadingEntries && entries.length === 0 && (
+          <div style={styles.empty}>
+            {debouncedQuery ? `No entries matched "${debouncedQuery}".` : 'No entries yet.'}
+          </div>
         )}
 
         <div style={styles.results}>
-          {entries.map((entry) => (
-            <div key={entry.id} className="card" style={styles.entryCard}>
-              <span style={styles.issueBadge}>{entry.issue}</span>
-              <div style={styles.entryCaseLaw}>{entry.case_law}</div>
-              <div style={styles.entryFindings}>{entry.findings}</div>
-              <div style={styles.entryNotes}>Notes: {entry.notes}</div>
-            </div>
-          ))}
+          {entries.map((entry) =>
+            editingId === entry.id ? (
+              <div key={entry.id} className="card" style={styles.entryCard}>
+                <label style={styles.label}>Issue</label>
+                <input
+                  type="text"
+                  value={editForm.issue}
+                  onChange={(e) => setEditForm((f) => ({ ...f, issue: e.target.value }))}
+                  style={{ marginBottom: 12 }}
+                />
+
+                <label style={styles.label}>Case Law</label>
+                <input
+                  type="text"
+                  value={editForm.case_law}
+                  onChange={(e) => setEditForm((f) => ({ ...f, case_law: e.target.value }))}
+                  style={{ marginBottom: 12 }}
+                />
+
+                <label style={styles.label}>Findings</label>
+                <textarea
+                  value={editForm.findings}
+                  onChange={(e) => setEditForm((f) => ({ ...f, findings: e.target.value }))}
+                  rows={5}
+                  style={{ marginBottom: 12, resize: 'vertical' }}
+                />
+
+                <label style={styles.label}>Additional Notes</label>
+                <textarea
+                  value={editForm.notes}
+                  onChange={(e) => setEditForm((f) => ({ ...f, notes: e.target.value }))}
+                  rows={2}
+                  style={{ marginBottom: 16, resize: 'vertical' }}
+                />
+
+                {editError && <div style={styles.errorBox}>{editError}</div>}
+
+                <div style={styles.editActions}>
+                  <button type="button" className="btn-primary" onClick={saveEdit} disabled={savingEdit}>
+                    {savingEdit ? 'Saving…' : 'Save'}
+                  </button>
+                  <button type="button" style={styles.cancelBtn} onClick={cancelEdit}>
+                    <X size={14} />
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div key={entry.id} className="card" style={styles.entryCard}>
+                <div style={styles.entryHeader}>
+                  <span style={styles.issueBadge}>{highlight(entry.issue, highlightTerm)}</span>
+                  <button type="button" style={styles.modifyBtn} onClick={() => startEdit(entry)}>
+                    <Pencil size={13} />
+                    Modify
+                  </button>
+                </div>
+                <div style={styles.entryCaseLaw}>{highlight(entry.case_law, highlightTerm)}</div>
+                <div style={styles.entryFindings}>{highlight(entry.findings, highlightTerm)}</div>
+                <div style={styles.entryNotes}>Notes: {highlight(entry.notes, highlightTerm)}</div>
+              </div>
+            )
+          )}
         </div>
+
+        <Pagination
+          page={page}
+          totalPages={totalPages}
+          onPrev={() => setPage((p) => Math.max(1, p - 1))}
+          onNext={() => setPage((p) => Math.min(totalPages, p + 1))}
+          loading={loadingEntries}
+        />
       </div>
     </div>
   );
@@ -188,6 +316,13 @@ const styles = {
   entryCard: {
     padding: 18,
   },
+  entryHeader: {
+    display: 'flex',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 12,
+    marginBottom: 8,
+  },
   issueBadge: {
     display: 'inline-block',
     fontSize: 11,
@@ -198,7 +333,18 @@ const styles = {
     border: '1px solid var(--border)',
     borderRadius: 6,
     padding: '2px 8px',
-    marginBottom: 8,
+  },
+  modifyBtn: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 6,
+    flexShrink: 0,
+    background: 'transparent',
+    border: '1px solid var(--border)',
+    color: 'var(--text)',
+    borderRadius: 6,
+    padding: '4px 10px',
+    fontSize: 12,
   },
   entryCaseLaw: {
     fontSize: 15,
@@ -217,5 +363,20 @@ const styles = {
     paddingTop: 8,
     borderTop: '1px solid var(--border)',
     fontStyle: 'italic',
+  },
+  editActions: {
+    display: 'flex',
+    gap: 8,
+  },
+  cancelBtn: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 6,
+    background: 'transparent',
+    border: '1px solid var(--border)',
+    color: 'var(--text)',
+    borderRadius: 8,
+    padding: '0 16px',
+    fontSize: 14,
   },
 };
