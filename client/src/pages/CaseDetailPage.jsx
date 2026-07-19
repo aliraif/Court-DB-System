@@ -36,9 +36,9 @@ export default function CaseDetailPage() {
     <div>
       <Navbar />
       <div style={styles.container} className="page-enter">
-        <Link to="/cases" style={styles.backLink}>
+        <Link to="/home" style={styles.backLink}>
           <ArrowLeft size={18} />
-          <span>Back to Cases</span>
+          <span>Back to Home</span>
         </Link>
 
         {error && <div style={styles.errorBox}>{error}</div>}

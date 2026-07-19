@@ -38,6 +38,7 @@ export default function HomePage() {
   const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [suggestions, setSuggestions] = useState([]);
 
   // Reset to page 1 whenever the active search changes. Computed during
   // render (React's recommended pattern for this) rather than in an
@@ -98,9 +99,21 @@ export default function HomePage() {
       if (error) {
         setError(error.message);
         setEntries([]);
+        setSuggestions([]);
+        return;
+      }
+
+      setEntries(data ?? []);
+      setTotalCount(count ?? 0);
+
+      if ((data ?? []).length === 0 && debouncedQuery) {
+        const { data: suggested } = await supabase.rpc('case_databank_suggestions', {
+          search_term: debouncedQuery,
+          match_limit: 5,
+        });
+        if (!cancelled) setSuggestions(suggested ?? []);
       } else {
-        setEntries(data ?? []);
-        setTotalCount(count ?? 0);
+        setSuggestions([]);
       }
     })();
 
@@ -173,6 +186,25 @@ export default function HomePage() {
         {!error && !loading && entries.length === 0 && (
           <div style={styles.empty}>
             {debouncedQuery ? `No entries matched "${debouncedQuery}".` : 'No entries in the case databank yet.'}
+          </div>
+        )}
+
+        {!error && !loading && entries.length === 0 && suggestions.length > 0 && (
+          <div style={styles.suggestions}>
+            <div style={styles.suggestionsLabel}>Maybe you're looking for these:</div>
+            <div style={styles.entries}>
+              {suggestions.map((entry) => (
+                <Link key={entry.id} to={`/cases/${entry.id}`} style={styles.entryLink}>
+                  <div className="card" style={styles.entryCard}>
+                    <div style={styles.issue}>{entry.issue}</div>
+                    <div style={styles.caseLaw}>{entry.case_law}</div>
+                    <div className="findings-fade" style={styles.findingsWrap}>
+                      <div style={styles.findings}>{entry.findings}</div>
+                    </div>
+                  </div>
+                </Link>
+              ))}
+            </div>
           </div>
         )}
 
@@ -310,6 +342,16 @@ const styles = {
     color: 'var(--muted)',
     fontSize: 14,
     padding: '20px 0',
+  },
+  suggestions: {
+    marginTop: 8,
+    marginBottom: 24,
+  },
+  suggestionsLabel: {
+    fontSize: 13,
+    color: 'var(--muted)',
+    fontStyle: 'italic',
+    marginBottom: 12,
   },
   entries: {
     display: 'flex',
